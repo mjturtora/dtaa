@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css">
+    <title>{{Window_Title}}</title>
+</head>
+
+<body>
+<h1 class="text-center"> {{Page_Title}}</h1>
+<!-- h2>Workbook Name: {{workbook}}</h2 -->
+<br><br>
+
+{% if nozeros %}
+  <h2>Zeros Removed</h2>
+  <br><br>
+{% endif %}
+
+<h2>Worksheet Shape:</h2>
+    <h4><ul>
+    <li>Number of Rows: {{ workbook_shape.0 }}</li>
+    <li>Number of Columns: {{ workbook_shape.1 }}</li>
+    </ul></h4>
+<br><br>
+
+<!--
+<h3> Column Names:</h3>
+    {% for a_value in columns %}
+      {{ a_value }},
+    {% endfor %}
+<br><br>
+-->
+<h2>
+Table of Contents
+<br>
+{% if numeric_summary_statistics %}
+    <a href="#NumSum">Numeric variable summary statistics</a>
+{% endif %}
+
+{% if object_summary_statistics %}
+    <br><a href="#ObjSum">Object variable summary statistics</a>
+{% endif %}
+
+{% if date_summary_statistics %}
+    <br><a href="#DtSum">Date variable summary statistics"</a>
+{% endif %}
+
+{% if missing %}
+    <br><a href="#MissAnal">Missing value analysis</a>
+{% endif %}
+
+{% if numeric_summary_statistics %}
+   <br><a href="#NumVal">Numeric value analysis</a>
+{% endif %}
+
+{% if logbarlist %}
+    <br><a href="#ChaVal">Character value analysis</a>
+{% endif %}
+
+{% if topbarlist %}
+    <br><a href="#TopBar">Barplots of top entry repetitions by column</a>
+{% endif %}
+
+
+</h2>
+<br><br>
+
+<h2>Variable names and summary statistics by type:</h2>
+<br><br>
+
+<!-- Import Tables -->
+<h3>Column Names and Data Types</h3>
+{{columns}}
+<br><br>
+
+<!-- Tables -->
+{% if numeric_summary_statistics %}
+<h3><a name="NumSum">Numeric Variable Summary Statistics</a></h3>
+    {{numeric_summary_statistics}}
+    <br><br>
+{% endif %}
+
+{% if object_summary_statistics %}
+<h3><a name="ObjSum">Object Variable Summary Statistics</a></h3>
+    {{object_summary_statistics}}
+    <br><br>
+{% endif %}
+
+{% if date_summary_statistics %}
+<h3><a name="DtSum">Date Variable Summary Statistics</a></h3>
+    {{date_summary_statistics}}
+    <br><br>
+{% endif %}
+
+<h2> <a name="MissAnal">Missing value analysis </a></h2>
+<br><br>
+
+{% if all_missing.any() %}
+<h3>The following columns have no data and will be dropped from further analysis:</h3>
+  <h4>
+      {% for a_value in all_missing %}
+         {{ a_value }},
+      {% endfor %}
+  </h4>
+<br><br>
+{% endif %}
+
+<!-- Import figures -->
+{% if missing %}
+    <h3>Number of non-missing values</h3>
+    <img src='png\missnum.png', class="img img-fluid">
+    <br><br>
+
+    <h3>Matrix representation of missing values (whitespace) showing location in file</h3>
+    <img src="png\missmat.png", class="img img-fluid">
+    <br><br>
+
+
+    <h3>"Heatmap" of missing/non-missing variable correlation matrix</h3>
+    <h4>High correlation means missing same values.
+        Variables with no missing values excluded</h4>
+    <img src="png\missheatmap.png", class="img img-fluid">
+    <br><br>
+
+    <h3>Dendrogram showing dis-similarity of missing values</h3>
+    <h4>Low dis-similarity means missing similar rows</h4>
+    <img src="png\missdendro.png", class="img img-fluid">
+    <br><br>
+{% endif %}
+
+
+{% if missbarlist %}
+<h3>Missing values and zeros by variable</h3>
+      {% for a_value in missbarlist %}
+        <img src="png\{{a_value}}.png", class="img img-fluid">
+      {% endfor %}
+<br><br><br>
+{% endif %}
+
+{% if numeric_summary_statistics %}
+<h2><a name="NumVal">Numeric value analysis</a></h2>
+    <br>
+
+    <h3>Histograms of numeric columns on log axis</h3>
+    <img src="png\plot_loghist.png", class="img img-fluid">
+    <br><br>
+
+    {% if loghistbylist %}
+    <h3>Histograms of numeric columns by first column</h3>
+          {% for a_value in loghistbylist %}
+            <img src="png\loghistby_{{a_value}}.png", class="img img-fluid">
+          {% endfor %}
+    <br><br>
+    {% endif %}
+{% endif %}
+<br>
+{% if object_summary_statistics %}
+    <h2><a name="ChaVal">Character value analysis</a></h2>
+    <br>
+
+    {% if logbarlist %}
+    <h3>Barplots of object columns with < 10000 unique values:</h3>
+          {% for a_value in logbarlist %}
+            <img src="png\logbar_{{a_value}}.png", class="img img-fluid">
+          {% endfor %}
+    <br><br>
+    {% endif %}
+    <br><br>
+
+    {% if topbarlist %}
+    <h3><a name="TopBar">Barplots of top entry repetitions by column</a></h3>
+          {% for a_value in topbarlist %}
+            <img src="png\topbar_{{a_value}}.png", class="img img-fluid">
+          {% endfor %}
+    <br><br>
+    {% endif %}
+{% endif %}
+
+</body>
+</html>
