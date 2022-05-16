@@ -18,6 +18,7 @@
 import os
 import time
 import stat
+import argparse
 import shutil
 from contextlib import suppress
 import pandas as pd
@@ -40,6 +41,15 @@ template = env.get_template("report_template.html")
 
 # todo: make a table class? subclass pd?
 # todo: add a CLI... GUI?
+
+
+def get_args(argv=None):
+    parser = argparse.ArgumentParser(
+        description="automatic exploratory data analysis on Excel file")
+    parser.add_argument("source_file")
+    arguments = parser.parse_args()
+    source = arguments.source_file
+    return source  #parser.parse_args(argv)
 
 
 def generate_report(nozeros, report_path, image_path, basename, df):
@@ -116,17 +126,19 @@ def get_worksheet_as_df(basename):
     # default extension
     extension = '.xlsx'
     path_name = os.path.join('..', 'io', basename + extension)
+    #sheetname = 'reunifications'
+    sheetname = 0
 
     try:
         print('Reading data file: "{}"'.format(path_name))
-        df = pd.read_excel(path_name)  #, nrows=1000)
+        df = pd.read_excel(path_name, sheet_name=sheetname)  #, nrows=1000)
         # todo: add csv feature someday
         # df = pd.read_csv(os.path.join(path_name))
 
     except FileNotFoundError:
         print('UTIL.GET_WORKSHEET_AS_DF: FileNotFound raised on INPUT')
         print('Trying again')
-        df = pd.read_excel(path_name)
+        df = pd.read_excel(path_name, sheet_name=sheetname)
     return df
 
 

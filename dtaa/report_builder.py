@@ -42,7 +42,11 @@ def build_report(basename):
 #                     number=1)))
 
 if __name__ == '__main__':
-    basename = 'work_orders_routine'
-    basename = 'x sample test address city state zip 21804 addresses'
+    # basename = 'work_orders_routine'
+    # basename = 'x sample test address city state zip 21804 addresses'
+    #basename = 'Reunification Re-entry Project'
+    #basename = 'Reunifications 2017-18 -no case ID'
+    #basename = 're-entry cleaned sheet 0'
+    basename = util.get_args()
+    print(f'Called get_args and got: \n {basename} \n')
     build_report(basename)
-
