@@ -54,6 +54,7 @@ def build_report(basename):
 if __name__ == '__main__':
 
     #Some "archived" basenames.
+    basename = ''
     # basename = 'work_orders_routine'
     # basename = 'x sample test address city state zip 21804 addresses'
     #basename = 'Reunification Re-entry Project'
@@ -66,7 +67,7 @@ if __name__ == '__main__':
     # todo: if starting outside code folder, set output paths to here. Maybe mkdir /path/"Results"
 
     # get_args: baby CLI to get basename from terminal
-    basename = util.get_args()
-
-    print(f'Called get_args and got: \n {basename} \n')
+    if not basename:
+        basename = util.get_args()
+        print(f'Called get_args and got: \n {basename} \n')
     build_report(basename)

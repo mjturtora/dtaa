@@ -20,12 +20,15 @@
 UTILITIES.PY TOC
 
 TOC:
-build_report is main. Called by reportbuilder.py
-data preprocessing and inventory functions (zeros, dimensions)
-table building functions (object names, types, df description tables)
-missing number handling and graphics
-numeric type handling and graphics
-categorical type handling and graphics
+generate_report() is entry point. Called by reportbuilder.py
+template_fill() creates template_vars dict used to populate html template
+data preprocessing and inventory functions (existence, empty columns, zeros)
+
+table building functions (PanDAS df description tables, object names, types)
+Graphics:
+    missing number handling and graphics
+    numeric type handling and graphics
+    categorical type handling and graphics (top maxbars categories)
 
 i/o mechanics:
 argument handler
@@ -52,6 +55,7 @@ import missingno as msno
 from jinja2 import Environment, FileSystemLoader
 
 pd.options.display.precision = 2
+#pd.set_option('datetime_is_numeric', True)
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
@@ -62,23 +66,6 @@ template_dir = 'D:\Stuff\Projects\dtaa\dtaa\\templates'
 
 env = Environment(loader=FileSystemLoader(template_dir))
 template = env.get_template("report_template.html")
-
-# todo: make a table class? subclass pd?
-# todo: add a CLI... GUI?
-
-
-def get_args(argv=None):
-    parser = argparse.ArgumentParser(
-        description="automatic exploratory data analysis on Excel file")
-
-    # https://docs.python.org/3.7/library/argparse.html#argparse.ArgumentParser
-    parser.add_argument("source_file"
-                        , help='Help text returned from command line'
-                        )
-
-    arguments = parser.parse_args()
-    source = arguments.source_file
-    return source  #parser.parse_args(argv)
 
 
 def generate_report(nozeros, report_path, image_path, basename, df):
@@ -146,56 +133,60 @@ def generate_report(nozeros, report_path, image_path, basename, df):
     return print('fini')
 
 
-def get_worksheet_as_df(basename):
-    """
-    Imports xlsx file as a dataframe.
+def template_fill(basename, nozeros, empty_columns, df):
+    """Creates jinja2 template variable dict and populates with mandatory entries where they exist."""
+    template_vars = {}
+    template_vars['Window_Title'] = basename
+    # todo: add file type variable to handle csv & more
+    template_vars['Page_Title'] = basename + '.xlsx'
+    template_vars['workbook_shape'] = df.shape
+    template_vars['all_missing'] = empty_columns
+    template_vars['nozeros'] = nozeros
 
-    """
-    # detect the current working directory and print it for laughs
-    path = os.getcwd()
-    print("The current working directory is %s" % path)
-    # default extension
-    extension = '.xlsx'
-    path_name = os.path.join('..', 'io', basename + extension)
-    #sheetname = 'reunifications'
-    sheetname = 0
+    # generate html tables from table functions and add to template dict
+    template_vars = html_to_template('columns', template_vars, df.dtypes.to_frame())
 
-    try:
-        print('Reading data file: "{}"'.format(path_name))
-        df = pd.read_excel(path_name, sheet_name=sheetname)  #, nrows=1000)
-        # todo: add csv feature someday
-        # df = pd.read_csv(os.path.join(path_name))
+    # todo: functionalize this:
+    if dtype_exists(df, 'number'):
+        print('FOUND NUMERIC COLUMNS')
+        template_vars = html_to_template('numeric_summary_statistics', template_vars, describe_numeric(df))
+    else:
+        print('NO NUMERIC COLUMNS FOUND')
 
-    except FileNotFoundError:
-        print('UTIL.GET_WORKSHEET_AS_DF: FileNotFound raised on INPUT')
-        print('Trying again')
-        df = pd.read_excel(path_name, sheet_name=sheetname)
-    return df
+    if dtype_exists(df, 'object'):
+        print('FOUND OBJECT COLUMNS')
+        template_vars = html_to_template('object_summary_statistics', template_vars, describe_objects(df))
+    else:
+        print('NO OBJECT COLUMNS FOUND')
+
+    if dtype_exists(df, ['datetime']):
+        print('FOUND DATETIME COLUMNS')
+        template_vars = html_to_template('date_summary_statistics', template_vars, describe_dates(df))
+    else:
+        print('NO DATETIME COLUMNS FOUND')
+    return template_vars
 
 
-def get_csv_as_df(basename):
-    """
-    Imports csv file as a dataframe.
+"""
+Data prep and existence checks (empties and zeros)
+"""
 
-    """
-    # detect the current working directory and print it for laughs
-    path = os.getcwd()
-    print("IN GET_CSV: The current working directory is %s" % path)
-    # default extension
-    extension = '.csv'
-    path_name = os.path.join('..', 'io', 'big-data-derby-2022', basename + extension)
 
-    try:
-        print('Reading data file: "{}"'.format(path_name))
-        df = pd.read_csv(path_name)  #, nrows=1000)
-        # todo: add csv feature someday (now maybe?!?)
-        # df = pd.read_csv(os.path.join(path_name))
+def dtype_exists(df, dtype):
+    """Tests for existence of specified datatype in dataframe"""
+    return len(df.select_dtypes(include=dtype).iloc[1].value_counts()) != 0
 
-    except FileNotFoundError:
-        print('UTIL.GET_CSV_AS_DF: FileNotFound raised on INPUT')
-        print('Trying again')
-        df = pd.read_csv(path_name)
-    return df
+
+# Oddly enough, it happens:
+def find_empty_columns(df):
+    """Builds list of any empty columns"""
+    df_described = description(df)
+    return df_described[df_described['count'] == 0].index.values
+
+
+def drop_empty_columns(empty_columns, df):
+    """Drops empty columns from dataframe"""
+    return df.drop(columns=empty_columns)
 
 
 def remove_zeros(basename, df):
@@ -205,64 +196,14 @@ def remove_zeros(basename, df):
     basename = 'NOZEROS ' + basename
     return basename, df
 
-
-def make_output_path(basename):
-    """Removes target folders if they exist and makes new paths"""
-    # todo: make output path user settable
-    # todo: make fig extension settable so .svg is easier.
-    print('OUPUT PATHS:')
-
-    # Project output paths
-    report_path = os.path.join('..', 'io', 'Reports', basename)
-    print(report_path)
-    image_path = os.path.join('..', 'io', 'Reports', basename, 'png')
-    print(image_path)
-
-    # use as path prefix in mkdir: "Output\Report"
-    print('Preparing file system')
-
-    # # Harvey's suggestion, with mod's
-    # with suppress(PermissionError, OSError):
-    #     print('Damned Win 10 FILENOTFOUND exception, ignoring and moving on...')
-    #     while True:
-    #         with suppress(FileNotFoundError):
-    #             shrmtree(report_path)
-    #             print('Damned Win 10 PERMISSION exception, trying again')
-    #         break
-
-    if os.path.exists(report_path):
-        def remove_readonly(func, path, _):
-            """Clear the readonly bit and reattempt the removal"""
-            os.chmod(path, stat.S_IWRITE)
-            func(path)
-        shutil.rmtree(report_path, onerror=remove_readonly)
-
-    while True:
-        try:
-            os.mkdir(report_path)
-            os.mkdir(image_path)
-            os.chmod(report_path, stat.S_IRWXU)
-            os.chmod(image_path, stat.S_IRWXU)
-            break
-        except FileExistsError:
-            print('Damned Win 10 FileExistsError exception on MKDIR, ignoring and moving on...')
-            os.chmod(report_path, stat.S_IRWXU)
-            shutil.rmtree(report_path)
-            continue
-        except PermissionError:
-            print('Damned Win 10 PERMISSION exception on MKDIR, pause and again')
-            print('sleep start')
-            time.sleep(1)
-            print('sleep stop')
-            #os.chmod(report_path, stat.S_IRWXU)
-            continue
-    return report_path, image_path
-
+"""
+PanDAS description table generation
+"""
 
 def description(df):
     """Gets PANDAS description table on all variables"""
     # transpose to get results in columns
-    return df.describe(include='all').T
+    return df.describe(include='all', datetime_is_numeric=True).T
 
 
 def describe_numeric(df):
@@ -277,30 +218,13 @@ def describe_objects(df):
 
 def describe_dates(df):
     """Gets PANDAS description table on datetime variables"""
-    return df.describe(include=['datetime']).T
+    return df.describe(include=['datetime'], datetime_is_numeric=True).T
 
+"""
+GRAPHICS FUNCTIONS:
+"""
 
-# Data prep: empty column  and zero dropping
-def find_empty_columns(df):
-    """Builds list of any empty columns"""
-    df_described = description(df)
-    return df_described[df_described['count'] == 0].index.values
-
-
-def drop_empty_columns(empty_columns, df):
-    """Drops empty columns from dataframe"""
-    return df.drop(columns=empty_columns)
-
-
-def drop_zeros(df):
-    """Replaces all zeros with nan, superseded by remove_zeros()"""
-    # set to null and drop na? replace with na?
-    # use for second round of tables and graphs?
-    df.replace(0, np.nan, inplace=True)
-    return
-
-
-# third party missing data visualizations.
+# third party missing data visualizations (Resident Mario missingno library).
 # Condense to func(image_path, df, plot_type)
 def missnum(image_path, df):
     """Makes ResidentMario's missing data barplot"""
@@ -331,7 +255,7 @@ def missdendro(image_path, df,  columns = 'All'):
     plt.close()
 
 
-# grouped bar of na/zero/non-zero
+# grouped bar of na/zero/non-zero. Forty-four variables (columns) at a time. (maxbars)
 def missbar(image_path, df):
     """Makes barplot of missing/zeros/and non-zeros grouped by variables"""
     # todo: funcionalize dimensions (needed elsewhere)
@@ -403,32 +327,7 @@ def plot_loghist(image_path, fname, df):
 
 
 #todo: log ok for postive data, but need to check sign.
-def plot_loghist_by(image_path, df):
-    """Makes log histograms for all numeric variables for each 'by' variable"""
-    # todo: squawks about date if using .plot().hist() to get loglog
-    # todo: move to fuction that returns list, supply as arg?
-    loghistbylist = []
-    for col in df.columns.values:
-        if df[col].dtype != 'object':
-            loghistbylist.append(col)
-            print(col, df[col].dtype)
-            # todo: zoom (and pan?) range, bonus to choose distribution based range
-            ax = df.hist(
-                         column=col,
-                         by=df.columns.values[0],
-                         bins=100,
-                         #range=(0, 10),
-                         log=True,
-                         #xlabelsize=6, xrot=45, ylabelsize=8,
-                         xrot=45,
-                         figsize=(20, 12)
-            )
-            plt.suptitle(col)
-            #plt.tight_layout()  # tight has trouble with suptitle
-            col = str(col).replace('#', '-')
-            plt.savefig(make_image_path(image_path, 'loghistby_' + col))
-            plt.close()
-    return loghistbylist
+#todo: log ok for postive data, but need to check sign.
 
 
 # todo: add more object techniques
@@ -514,6 +413,29 @@ def plot_logbar_by(image_path, df):
     return logbarlist
 
 
+"""
+####################################################################
+I/O
+"""
+
+def get_args(argv=None):
+"""
+Uses argparser to get file basename (no extension) for analysis
+"""
+
+parser = argparse.ArgumentParser(
+        description="automatic exploratory data analysis on Excel file")
+
+    # https://docs.python.org/3.7/library/argparse.html#argparse.ArgumentParser
+    parser.add_argument("source_file"
+                        , help='Enter source file name without extension'
+                        )
+
+    arguments = parser.parse_args()
+    source = arguments.source_file
+    return source  #parser.parse_args(argv)
+
+
 def make_image_path(image_path, substring):
     """Uses 'path.join' to build path strings for plots. Changes and '#'s to '-'s cuz: CSS"""
     # todo: add more html filters?
@@ -521,21 +443,207 @@ def make_image_path(image_path, substring):
     path = os.path.join(image_path, substring.replace('#', '-') + '.png')
     return path
 
-def join_columns(column_names, start_row, stop_row, df):
-    """
-    Merges df columns into one series as strings. Subset with start:stop rows.
-    Not used anymore but may be useful.
-    """
-    first_col_name = column_names[0]
-    remaining_col_names = column_names[1:]
-    df = df.iloc[start_row:stop_row]
-    sr = df[first_col_name].str.strip()
-    for name in remaining_col_names:
-        sr += ' ' + df[name].str.strip()
-    sr = sr.unique()
-    sr = sr[~pd.isnull(sr)]
-    return sr
 
+def make_output_path(basename):
+    """Removes target folders if they exist and makes new paths"""
+    # todo: make output path user settable
+    # todo: make fig extension settable so .svg is easier.
+    print('OUPUT PATHS:')
+
+    # Project output paths
+    report_path = os.path.join('..', 'io', 'Reports', basename)
+    print(report_path)
+    image_path = os.path.join('..', 'io', 'Reports', basename, 'png')
+    print(image_path)
+
+    # use as path prefix in mkdir: "Output\Report"
+    print('Preparing file system')
+
+    # # Harvey's suggestion, with mod's
+    # with suppress(PermissionError, OSError):
+    #     print('Damned Win 10 FILENOTFOUND exception, ignoring and moving on...')
+    #     while True:
+    #         with suppress(FileNotFoundError):
+    #             shrmtree(report_path)
+    #             print('Damned Win 10 PERMISSION exception, trying again')
+    #         break
+
+    if os.path.exists(report_path):
+        def remove_readonly(func, path, _):
+            """Clear the readonly bit and reattempt the removal"""
+            os.chmod(path, stat.S_IWRITE)
+            func(path)
+        shutil.rmtree(report_path, onerror=remove_readonly)
+
+    while True:
+        try:
+            os.mkdir(report_path)
+            os.mkdir(image_path)
+            os.chmod(report_path, stat.S_IRWXU)
+            os.chmod(image_path, stat.S_IRWXU)
+            break
+        except FileExistsError:
+            print('Damned Win 10 FileExistsError exception on MKDIR, ignoring and moving on...')
+            os.chmod(report_path, stat.S_IRWXU)
+            shutil.rmtree(report_path)
+            continue
+        except PermissionError:
+            print('Damned Win 10 PERMISSION exception on MKDIR, pause and again')
+            print('sleep start')
+            time.sleep(1)
+            print('sleep stop')
+            #os.chmod(report_path, stat.S_IRWXU)
+            continue
+    return report_path, image_path
+
+"""
+###########################
+FILE INPUT
+"""
+
+def get_worksheet_as_df(basename):
+    """
+    Imports xlsx file as a dataframe.
+
+    """
+    # detect the current working directory and print it for laughs
+    path = os.getcwd()
+    print("The current working directory is %s" % path)
+    # default extension
+    extension = '.xlsx'
+    path_name = os.path.join('..', 'io', basename + extension)
+    #sheetname = 'reunifications'
+    sheetname = 0
+
+    try:
+        print('Reading data file: "{}"'.format(path_name))
+        df = pd.read_excel(path_name, sheet_name=sheetname)  #, nrows=1000)
+        # todo: add csv feature someday
+        # df = pd.read_csv(os.path.join(path_name))
+
+    except FileNotFoundError:
+        print('UTIL.GET_WORKSHEET_AS_DF: FileNotFound raised on INPUT')
+        print('Trying again')
+        df = pd.read_excel(path_name, sheet_name=sheetname)
+    return df
+
+
+def get_csv_as_df(basename):
+    """
+    Imports csv file as a dataframe.
+
+    """
+    # detect the current working directory and print it for laughs
+    path = os.getcwd()
+    print("IN GET_CSV: The current working directory is %s" % path)
+    # default extension
+    extension = '.csv'
+    path_name = os.path.join('..', 'io', 'big-data-derby-2022', basename + extension)
+
+    try:
+        print('Reading data file: "{}"'.format(path_name))
+        df = pd.read_csv(path_name)  #, nrows=1000)
+        # todo: add csv feature someday (now maybe?!?)
+        # df = pd.read_csv(os.path.join(path_name))
+
+    except FileNotFoundError:
+        print('UTIL.GET_CSV_AS_DF: FileNotFound raised on INPUT')
+        print('Trying again')
+        df = pd.read_csv(path_name)
+    return df
+
+
+"""
+###########################
+OUTPUTS:
+"""
+
+
+# Output: excel, jinja2 template, html
+def output_to_excel(fname, df):
+    """Outputs dataframe to hardwired excel file format. (not used)"""
+    writer = pd.ExcelWriter(os.path.join('Output', fname), engine='xlsxwriter')
+    df.to_excel(writer)
+    writer.save()
+    return
+
+
+def html_to_template(var, template_vars, df):
+    """Writes a df to html format and adds to template dict with bootstrap CSS classes"""
+    table_classes = 'table table-striped table-responsive'
+    template_vars[var] = df.to_html(classes=table_classes)
+    return template_vars
+
+
+def html_out(report_path, basename, html_string):
+    """Opens html file for writing report doc"""
+    with open(os.path.join(report_path, basename + '.html'), 'w') as rpt:
+        rpt.write(html_string)
+    return
+
+"""
+################################################################
+LEGACY CODE ARCHIVE, commented out to conserve namespace
+"""
+
+
+# def plot_loghist_by(image_path, df):
+#     """Makes log histograms for all numeric variables for each 'by' variable"""
+#     # todo: squawks about date if using .plot().hist() to get loglog
+#     # todo: move to fuction that returns list, supply as arg?
+#     loghistbylist = []
+#     for col in df.columns.values:
+#         if df[col].dtype != 'object':
+#             loghistbylist.append(col)
+#             print(col, df[col].dtype)
+#             # todo: zoom (and pan?) range, bonus to choose distribution based range
+#             ax = df.hist(
+#                          column=col,
+#                          by=df.columns.values[0],
+#                          bins=100,
+#                          #range=(0, 10),
+#                          log=True,
+#                          #xlabelsize=6, xrot=45, ylabelsize=8,
+#                          xrot=45,
+#                          figsize=(20, 12)
+#             )
+#             plt.suptitle(col)
+#             #plt.tight_layout()  # tight has trouble with suptitle
+#             col = str(col).replace('#', '-')
+#             plt.savefig(make_image_path(image_path, 'loghistby_' + col))
+#             plt.close()
+#     return loghistbylist
+
+
+#output_to_excel(df_upper_tri)
+#pprint([["{0:0.2f}".format(j) for j in inner] for inner in upper_tri])
+
+# # join_columns could "stack" data to "long" format
+# def join_columns(column_names, start_row, stop_row, df):
+#     """
+#     Merges df columns into one series as strings. Subset with start:stop rows.
+#     Not used anymore but may be useful.
+#     """
+#     first_col_name = column_names[0]
+#     remaining_col_names = column_names[1:]
+#     df = df.iloc[start_row:stop_row]
+#     sr = df[first_col_name].str.strip()
+#     for name in remaining_col_names:
+#         sr += ' ' + df[name].str.strip()
+#     sr = sr.unique()
+#     sr = sr[~pd.isnull(sr)]
+#     return sr
+
+
+# def drop_zeros(df):
+#     """Replaces all zeros with nan, superseded by remove_zeros()"""
+#     # set to null and drop na? replace with na?
+#     # use for second round of tables and graphs?
+#     df.replace(0, np.nan, inplace=True)
+#     return
+
+"""
+# selections used for custom project. Could be adapted to new data
 def selections(df):
     print(df.describe())
 
@@ -576,68 +684,4 @@ def selections(df):
 
     #df = df.loc[df.loc[:, 'QUANTITY_ISSUED'] < 20000]
     return df
-
-
-def template_fill(basename, nozeros, empty_columns, df):
-    """Creates jinja2 template variable dict and populates with mandatory entries where they exist."""
-    template_vars = {}
-    template_vars['Window_Title'] = basename
-    # todo: add file type variable to handle csv & more
-    template_vars['Page_Title'] = basename + '.xlsx'
-    template_vars['workbook_shape'] = df.shape
-    template_vars['all_missing'] = empty_columns
-    template_vars['nozeros'] = nozeros
-
-    # generate html tables from table functions and add to template dict
-    template_vars = html_to_template('columns', template_vars, df.dtypes.to_frame())
-
-    # todo: functionalize this:
-    if dtype_exists(df, 'number'):
-        print('FOUND NUMERIC COLUMNS')
-        template_vars = html_to_template('numeric_summary_statistics', template_vars, describe_numeric(df))
-    else:
-        print('NO NUMERIC COLUMNS FOUND')
-
-    if dtype_exists(df, 'object'):
-        print('FOUND OBJECT COLUMNS')
-        template_vars = html_to_template('object_summary_statistics', template_vars, describe_objects(df))
-    else:
-        print('NO OBJECT COLUMNS FOUND')
-
-    if dtype_exists(df, ['datetime']):
-        print('FOUND DATETIME COLUMNS')
-        template_vars = html_to_template('date_summary_statistics', template_vars, describe_dates(df))
-    else:
-        print('NO DATETIME COLUMNS FOUND')
-    return template_vars
-
-
-def dtype_exists(df, dtype):
-    """Tests for existence of specified datatype in dataframe"""
-    return len(df.select_dtypes(include=dtype).iloc[1].value_counts()) != 0
-
-
-#output_to_excel(df_upper_tri)
-#pprint([["{0:0.2f}".format(j) for j in inner] for inner in upper_tri])
-
-# Output: excel, jinja2 template, html
-def output_to_excel(fname, df):
-    """Outputs dataframe to hardwired excel file format. (not used)"""
-    writer = pd.ExcelWriter(os.path.join('Output', fname), engine='xlsxwriter')
-    df.to_excel(writer)
-    writer.save()
-    return
-
-
-def html_to_template(var, template_vars, df):
-    """Writes a df to html format and adds to template dict with bootstrap CSS classes"""
-    table_classes = 'table table-striped table-responsive'
-    template_vars[var] = df.to_html(classes=table_classes)
-    return template_vars
-
-
-def html_out(report_path, basename, html_string):
-    """Opens html file for writing report doc"""
-    with open(os.path.join(report_path, basename + '.html'), 'w') as rpt:
-        rpt.write(html_string)
-    return
+"""
