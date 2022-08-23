@@ -16,6 +16,26 @@
 # You should have received a copy of the GNU General Public License
 # along with dtaa .  If not, see <https://www.gnu.org/licenses/>.
 
+"""
+UTILITIES.PY TOC
+
+TOC:
+build_report is main. Called by reportbuilder.py
+data preprocessing and inventory functions (zeros, dimensions)
+table building functions (object names, types, df description tables)
+missing number handling and graphics
+numeric type handling and graphics
+categorical type handling and graphics
+
+i/o mechanics:
+argument handler
+path setters
+input file functions
+output functions
+template output
+"""
+
+
 import os
 import time
 import stat
