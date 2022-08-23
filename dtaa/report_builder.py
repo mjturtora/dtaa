@@ -15,15 +15,26 @@
 # You should have received a copy of the GNU General Public License
 # along with dtaa .  If not, see <https://www.gnu.org/licenses/>.
 
+
 import time
+import os
+
+path = os.getcwd()
+print("AFTER OS IMPORT IN MAIN: The current working directory is %s" % path)
+
+
 import utilities as util
+
 
 def build_report(basename):
 
     # activate this to run report
     nozeros = False  # True removes zeros and makes separate output
 
-    df = util.get_worksheet_as_df(basename)
+    # xlsx or csv. todo: add selection
+    #df = util.get_worksheet_as_df(basename)
+    df = util.get_csv_as_df(basename)
+
     if nozeros:
         basename, df = util.remove_zeros(basename, df)
     else:
@@ -42,11 +53,21 @@ def build_report(basename):
 #                     number=1)))
 
 if __name__ == '__main__':
+
+    #Some "archived" basenames.
     # basename = 'work_orders_routine'
     # basename = 'x sample test address city state zip 21804 addresses'
     #basename = 'Reunification Re-entry Project'
     #basename = 'Reunifications 2017-18 -no case ID'
     #basename = 're-entry cleaned sheet 0'
+
+    # detect the current working directory and print it for debugging and laughs
+    path = os.getcwd()
+    print("The current working directory is %s" % path)
+    # todo: if starting outside code folder, set output paths to here. Maybe mkdir /path/"Results"
+
+    # get_args: baby CLI to get basename from terminal
     basename = util.get_args()
+
     print(f'Called get_args and got: \n {basename} \n')
     build_report(basename)

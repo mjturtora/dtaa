@@ -36,7 +36,10 @@ pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
 #####################################
-template_dir = '../templates'
+
+# template_dir = '../templates'
+template_dir = 'D:\Stuff\Projects\dtaa\dtaa\\templates'
+
 env = Environment(loader=FileSystemLoader(template_dir))
 template = env.get_template("report_template.html")
 
@@ -47,7 +50,12 @@ template = env.get_template("report_template.html")
 def get_args(argv=None):
     parser = argparse.ArgumentParser(
         description="automatic exploratory data analysis on Excel file")
-    parser.add_argument("source_file")
+
+    # https://docs.python.org/3.7/library/argparse.html#argparse.ArgumentParser
+    parser.add_argument("source_file"
+                        , help='Help text returned from command line'
+                        )
+
     arguments = parser.parse_args()
     source = arguments.source_file
     return source  #parser.parse_args(argv)
@@ -79,6 +87,8 @@ def generate_report(nozeros, report_path, image_path, basename, df):
     # todo: add title/captions for miss figures
 
     # single file output plot functions, missing data plots first:
+
+    # todo: refactor to "has_missing_values" and extract func
     if df.isnull().values.any():
         missing = True
         missnum(image_path, df)
@@ -99,7 +109,7 @@ def generate_report(nozeros, report_path, image_path, basename, df):
 
     # todo: move to template func or a multiplot function
 
-    # multiple file output plot functions need list of names for template
+    # plot functions with multiple file outputs need list of filenames for template
     template_vars['missbarlist'] = missbar(image_path, df)
 
     # todo: add logic to plot loghist_by if small number of classes in column 1
@@ -118,7 +128,7 @@ def generate_report(nozeros, report_path, image_path, basename, df):
 
 def get_worksheet_as_df(basename):
     """
-    Imports file as a dataframe.
+    Imports xlsx file as a dataframe.
 
     """
     # detect the current working directory and print it for laughs
@@ -140,6 +150,31 @@ def get_worksheet_as_df(basename):
         print('UTIL.GET_WORKSHEET_AS_DF: FileNotFound raised on INPUT')
         print('Trying again')
         df = pd.read_excel(path_name, sheet_name=sheetname)
+    return df
+
+
+def get_csv_as_df(basename):
+    """
+    Imports csv file as a dataframe.
+
+    """
+    # detect the current working directory and print it for laughs
+    path = os.getcwd()
+    print("IN GET_CSV: The current working directory is %s" % path)
+    # default extension
+    extension = '.csv'
+    path_name = os.path.join('..', 'io', 'big-data-derby-2022', basename + extension)
+
+    try:
+        print('Reading data file: "{}"'.format(path_name))
+        df = pd.read_csv(path_name)  #, nrows=1000)
+        # todo: add csv feature someday (now maybe?!?)
+        # df = pd.read_csv(os.path.join(path_name))
+
+    except FileNotFoundError:
+        print('UTIL.GET_CSV_AS_DF: FileNotFound raised on INPUT')
+        print('Trying again')
+        df = pd.read_csv(path_name)
     return df
 
 
