@@ -20,11 +20,12 @@
 UTILITIES.PY TOC
 
 TOC:
+
 generate_report() is entry point. Called by reportbuilder.py
 template_fill() creates template_vars dict used to populate html template
 data preprocessing and inventory functions (existence, empty columns, zeros)
-
 table building functions (PanDAS df description tables, object names, types)
+
 Graphics:
     missing number handling and graphics
     numeric type handling and graphics
@@ -40,6 +41,7 @@ template output
 
 
 import os
+import sys
 import time
 import stat
 import argparse
@@ -55,7 +57,6 @@ import missingno as msno
 from jinja2 import Environment, FileSystemLoader
 
 pd.options.display.precision = 2
-#pd.set_option('datetime_is_numeric', True)
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
@@ -159,6 +160,8 @@ def template_fill(basename, nozeros, empty_columns, df):
     else:
         print('NO OBJECT COLUMNS FOUND')
 
+    # todo: improve date time detector to look inside objects to find dates as labels.
+    # could use pd.to_datetime() and raise for non-dates?
     if dtype_exists(df, ['datetime']):
         print('FOUND DATETIME COLUMNS')
         template_vars = html_to_template('date_summary_statistics', template_vars, describe_dates(df))
@@ -419,14 +422,16 @@ I/O
 """
 
 def get_args(argv=None):
-"""
-Uses argparser to get file basename (no extension) for analysis
-"""
+    """
+    Uses argparser to get file basename (no extension) for analysis
+    """
 
-parser = argparse.ArgumentParser(
-        description="automatic exploratory data analysis on Excel file")
+    #print(f"In get_args, argv= {argv}\n sysargs = {sys.argv}")
+    parser = argparse.ArgumentParser(
+            description="automatic exploratory data analysis on Excel file")
 
     # https://docs.python.org/3.7/library/argparse.html#argparse.ArgumentParser
+    # https://stackoverflow.com/questions/26785952/python-argparse-as-a-function
     parser.add_argument("source_file"
                         , help='Enter source file name without extension'
                         )
@@ -434,6 +439,35 @@ parser = argparse.ArgumentParser(
     arguments = parser.parse_args()
     source = arguments.source_file
     return source  #parser.parse_args(argv)
+
+
+def detect_ftype(basename):
+    # https://stackoverflow.com/questions/23515791/how-to-check-the-uploaded-file-is-csv-or-xls-in-python
+    # https://docs.python.org/3/library/codecs.html
+
+    import codecs
+
+    xlsx_sig = b'\x50\x4B\x05\06'
+    xls_sig = b'\x09\x08\x10\x00\x00\x06\x05\x00'
+
+    filenames = [
+        ('spreadsheet.xls', 0, 512, 8),
+        ('spreadsheet.xlsx', 2, -22, 4)]
+
+    for filename, whence, offset, size in filenames:
+        with open(filename, 'rb') as f:
+            f.seek(offset, whence)  # Seek to the offset.
+            bytes = f.read(size)  # Capture the specified number of bytes.
+
+            print("codecs.getencoder('hex')(bytes)")
+
+            if bytes == xls_sig:
+                msg = '"{}" is an xls.'
+            elif bytes == xlsx_sig:
+                msg = '"{}" is an xlsx.'
+            else:
+                msg = '"{}" is not an Excel document.'
+            print('msg.format(filename)')
 
 
 def make_image_path(image_path, substring):
@@ -508,12 +542,12 @@ def get_worksheet_as_df(basename):
     """
     # detect the current working directory and print it for laughs
     path = os.getcwd()
-    print("The current working directory is %s" % path)
+    print(f"The current working directory is {path}")
     # default extension
     extension = '.xlsx'
     path_name = os.path.join('..', 'io', basename + extension)
     #sheetname = 'reunifications'
-    sheetname = 0
+    sheetname = 0  # 0 for default 1st sheet as a DataFrame
 
     try:
         print('Reading data file: "{}"'.format(path_name))
@@ -538,7 +572,8 @@ def get_csv_as_df(basename):
     print("IN GET_CSV: The current working directory is %s" % path)
     # default extension
     extension = '.csv'
-    path_name = os.path.join('..', 'io', 'big-data-derby-2022', basename + extension)
+    #path_name = os.path.join('..', 'io', 'big-data-derby-2022', basename + extension)
+    path_name = os.path.join('..', 'io', basename + extension)
 
     try:
         print('Reading data file: "{}"'.format(path_name))

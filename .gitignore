@@ -1,6 +1,13 @@
 # Input/Output files, but not folder
 io/**
 
+# various temporary development/testing files
+dtaa/argparse_function.py
+dtaa/byte detect.py
+dtaa/cli_argparse_example.py
+dtaa/difflib_CLI.py
+dtaa/test_filetype_package.py
+
 # pycharm project file
 .idea/
 
@@ -120,3 +127,4 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+/dtaa/byte list.py

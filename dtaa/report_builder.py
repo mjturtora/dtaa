@@ -4,6 +4,8 @@
 
 # dtaa is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
+
+
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
@@ -15,13 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with dtaa .  If not, see <https://www.gnu.org/licenses/>.
 
-import time
 import os
+import sys
 
 path = os.getcwd()
 print("AFTER OS IMPORT IN MAIN: The current working directory is %s" % path)
-
-
+dir()
 import utilities as util
 
 
@@ -31,19 +32,19 @@ def build_report(basename):
     nozeros = False  # True removes zeros and makes separate output
 
     # xlsx or csv. todo: add selection
-    #df = util.get_worksheet_as_df(basename)
-    df = util.get_csv_as_df(basename)
+    df = util.get_worksheet_as_df(basename)
+    # df = util.get_csv_as_df(basename)
 
     if nozeros:
         basename, df = util.remove_zeros(basename, df)
     else:
-        print('Keeping zeros')    #    report_path, image_path = make_output_path(test, basename)
+        print('Keeping zeros')  # report_path, image_path = make_output_path(test, basename)
     basename = basename  # + ' GROUPED'
     report_path, image_path = util.make_output_path(basename)
     util.generate_report(nozeros, report_path, image_path, basename, df)
 
     # activate this to load data w/o running report
-    #report_path, image_path, df = util.choose_file()
+    # report_path, image_path, df = util.choose_file()
 
 
 # import timeit
@@ -53,21 +54,23 @@ def build_report(basename):
 
 if __name__ == '__main__':
 
-    #Some "archived" basenames.
+    # Some "archived" basenames.
     basename = ''
     # basename = 'work_orders_routine'
     # basename = 'x sample test address city state zip 21804 addresses'
-    #basename = 'Reunification Re-entry Project'
-    #basename = 'Reunifications 2017-18 -no case ID'
-    #basename = 're-entry cleaned sheet 0'
+    # basename = 'Reunification Re-entry Project'
+    # basename = 'Reunifications 2017-18 -no case ID'
+    # basename = 're-entry cleaned sheet 0'
 
     # detect the current working directory and print it for debugging and laughs
     path = os.getcwd()
-    print("The current working directory is %s" % path)
+    #print(f"In __main__ The current working directory is {path}")
+    #print(f"In __main__ basename = {basename}")
+
     # todo: if starting outside code folder, set output paths to here. Maybe mkdir /path/"Results"
 
     # get_args: baby CLI to get basename from terminal
     if not basename:
-        basename = util.get_args()
+        basename = util.get_args(sys.argv)
         print(f'Called get_args and got: \n {basename} \n')
     build_report(basename)
